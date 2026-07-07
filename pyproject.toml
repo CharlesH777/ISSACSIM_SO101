@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ROBOTarm_NEXUS"
+version = "0.1.0"
+description = "Standalone Isaac Lab SO101 minimal sim package"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ROBOTarm_NEXUS*"]
+
+[tool.setuptools.package-data]
+ROBOTarm_NEXUS = [
+    "assets/**/*.urdf",
+    "assets/**/*.yaml",
+    "assets/**/*.usd",
+    "assets/**/.gitkeep",
+]

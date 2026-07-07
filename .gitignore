@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Isaac Sim / Omniverse runtime
+cache/
+*.kit
+*.usda
+*.usdc
+*.usdz
+
+# Logs
+*.log
+logs/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# Datasets (never commit data)
+datasets/
+*.hdf5
+*.zarr
+IsaacLab/

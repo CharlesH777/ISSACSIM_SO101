@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<robot name="so101_rmpflow">
+  <link name="base">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <link name="shoulder">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+  </link>
+
+  <link name="upper_arm">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+  </link>
+
+  <link name="lower_arm">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+  </link>
+
+  <link name="wrist">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.15"/>
+      <inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/>
+    </inertial>
+  </link>
+
+  <link name="gripper">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002"/>
+    </inertial>
+  </link>
+
+  <joint name="shoulder_pan" type="revolute">
+    <parent link="base"/>
+    <child link="shoulder"/>
+    <origin xyz="0.0207909 -0.0230745 0.0948817" rpy="-3.14159 0.0 1.5708"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.919862" upper="1.919862" effort="10.0" velocity="4.0"/>
+  </joint>
+
+  <joint name="shoulder_lift" type="revolute">
+    <parent link="shoulder"/>
+    <child link="upper_arm"/>
+    <origin xyz="-0.0303992 -0.0182778 -0.0542" rpy="1.570796 -1.570796 -3.128082"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.74533" upper="1.74533" effort="10.0" velocity="4.0"/>
+  </joint>
+
+  <joint name="elbow_flex" type="revolute">
+    <parent link="upper_arm"/>
+    <child link="lower_arm"/>
+    <origin xyz="-0.11257 -0.028 0.0" rpy="0.0 0.0 1.5708"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.74533" upper="1.5708" effort="10.0" velocity="4.0"/>
+  </joint>
+
+  <joint name="wrist_flex" type="revolute">
+    <parent link="lower_arm"/>
+    <child link="wrist"/>
+    <origin xyz="-0.1349 0.0052 0.0" rpy="0.0 0.0 -1.5708"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.658063" upper="1.658063" effort="10.0" velocity="4.0"/>
+  </joint>
+
+  <joint name="wrist_roll" type="revolute">
+    <parent link="wrist"/>
+    <child link="gripper"/>
+    <origin xyz="0.0 -0.0611 0.0181" rpy="1.5708 0.0 3.14159"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.792527" upper="2.792527" effort="10.0" velocity="4.0"/>
+  </joint>
+</robot>
