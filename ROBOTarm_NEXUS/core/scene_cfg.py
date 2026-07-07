@@ -11,7 +11,8 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import FrameTransformerCfg, OffsetCfg, TiledCameraCfg
 from isaaclab.utils import configclass
 
-from .robot_cfg import SO101_FOLLOWER_CFG
+from .robot_cfg import ROBOT_CFG
+from .specs import ACTIVE_ROBOT
 
 # ---------------------------------------------------------------------------
 #  Geometry constants
@@ -183,23 +184,23 @@ class SO101MinimalSceneCfg(InteractiveSceneCfg):
     )
 
     # --- robot ----------------------------------------------------------
-    robot: ArticulationCfg = SO101_FOLLOWER_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Robot"
+    robot: ArticulationCfg = ROBOT_CFG.replace(
+        prim_path=ACTIVE_ROBOT.robot_prim_path()
     )
 
     # --- end-effector frame (for IK / observation) ----------------------
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base",
+        prim_path=ACTIVE_ROBOT.base_prim_path(),
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/gripper",
-                name="gripper",
+                prim_path=ACTIVE_ROBOT.ee_prim_path(),
+                name=ACTIVE_ROBOT.ee_frame_name,
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/jaw",
-                name="jaw",
-                offset=OffsetCfg(pos=(-0.021, -0.070, 0.02)),
+                prim_path=ACTIVE_ROBOT.jaw_prim_path(),
+                name=ACTIVE_ROBOT.jaw_frame_name,
+                offset=OffsetCfg(pos=ACTIVE_ROBOT.jaw_frame_offset),
             ),
         ],
     )
@@ -240,7 +241,7 @@ class SO101MinimalSceneCfg(InteractiveSceneCfg):
 
     # --- front camera (overhead view of the tabletop) -------------------
     front: TiledCameraCfg = TiledCameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base/front_camera",
+        prim_path=ACTIVE_ROBOT.front_camera_prim_path(),
         offset=TiledCameraCfg.OffsetCfg(
             pos=(0.0, -0.45, 0.6),
             rot=(0.1650476, -0.9862856, 0.0, 0.0),
@@ -261,7 +262,7 @@ class SO101MinimalSceneCfg(InteractiveSceneCfg):
 
     # --- wrist camera (mounted on the gripper) --------------------------
     wrist: TiledCameraCfg = TiledCameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/gripper/wrist_camera",
+        prim_path=ACTIVE_ROBOT.wrist_camera_prim_path(),
         offset=TiledCameraCfg.OffsetCfg(
             pos=(-0.001, 0.1, -0.04),
             rot=(-0.404379, -0.912179, -0.0451242, 0.0486914),

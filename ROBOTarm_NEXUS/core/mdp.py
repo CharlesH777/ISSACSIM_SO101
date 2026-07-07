@@ -15,6 +15,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import FrameTransformer
 
 from .scene_cfg import CUBE_DEFAULT_POSITIONS
+from .specs import CUBE_NAMES
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ def joint_pos_target(env: DirectRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCf
 def randomize_cubes_permutation(
     env: DirectRLEnv,
     env_ids: torch.Tensor,
-    cube_names: list[str] = ("cube_red", "cube_green", "cube_blue"),
+    cube_names: list[str] = CUBE_NAMES,
     slot_positions: tuple[tuple[float, float, float], ...] = CUBE_DEFAULT_POSITIONS,
     yaw_range: tuple[float, float] = (-30.0 * math.pi / 180, 30.0 * math.pi / 180),
 ):
@@ -100,7 +101,7 @@ def randomize_cubes_permutation(
 # ---------------------------------------------------------------------------
 def any_cube_lifted(
     env: DirectRLEnv,
-    cube_names: list[str] = ("cube_red", "cube_green", "cube_blue"),
+    cube_names: list[str] = CUBE_NAMES,
     height_threshold: float = 0.08,
 ) -> torch.Tensor:
     """True when any cube is lifted ``height_threshold`` above the table surface."""
@@ -112,7 +113,7 @@ def any_cube_lifted(
     return success
 
 
-def cube_positions(env: DirectRLEnv, cube_names: list[str] = ("cube_red", "cube_green", "cube_blue")) -> torch.Tensor:
+def cube_positions(env: DirectRLEnv, cube_names: list[str] = CUBE_NAMES) -> torch.Tensor:
     """Return (N, num_cubes, 3) world positions of all cubes."""
     positions = [env.scene[name].data.root_pos_w for name in cube_names]
     return torch.stack(positions, dim=1)

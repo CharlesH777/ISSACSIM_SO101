@@ -10,6 +10,7 @@ from isaaclab.utils import configclass
 from isaaclab.envs.direct_rl_env_cfg import DirectRLEnvCfg
 
 from .scene_cfg import SO101MinimalSceneCfg, ROBOT_BASE_POS, ROBOT_BASE_ROT
+from .specs import CUBE_NAMES
 
 
 @configclass
@@ -41,7 +42,7 @@ class SO101MinimalEnvCfg(DirectRLEnvCfg):
     decimation = 1
 
     # --- custom fields (not part of Isaac Lab base) ---------------------
-    cube_names: list[str] = ["cube_red", "cube_green", "cube_blue"]
+    cube_names: list[str] = list(CUBE_NAMES)
     lift_height_threshold: float = 0.08
 
     def __post_init__(self) -> None:

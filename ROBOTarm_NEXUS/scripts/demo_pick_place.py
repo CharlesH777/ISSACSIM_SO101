@@ -4,21 +4,17 @@ from __future__ import annotations
 
 import argparse
 import gc
-import json
-import math
-from pathlib import Path
 
 from isaaclab.app import AppLauncher
-
-DEFAULT_PLACE_TARGET_W = (0.26, -0.34, 0.4415)
+from ROBOTarm_NEXUS.core.specs import CUBE_NAMES, DEFAULT_PLACE_TARGET_W, ENV_ID
 
 parser = argparse.ArgumentParser(
     description="ROBOTarm_NEXUS demo — dual cameras + Lula IK pick and place"
 )
 parser.add_argument(
     "--cube",
-    choices=("cube_red", "cube_green", "cube_blue"),
-    default="cube_red",
+    choices=CUBE_NAMES,
+    default=CUBE_NAMES[0],
     help="Cube to pick and place",
 )
 parser.add_argument(
@@ -53,7 +49,6 @@ app_launcher = AppLauncher(vars(args_cli))
 simulation_app = app_launcher.app
 
 import gymnasium as gym  # noqa: E402
-import isaaclab.utils.math as math_utils  # noqa: E402
 import torch  # noqa: E402
 
 import ROBOTarm_NEXUS  # noqa: F401, E402
@@ -61,9 +56,16 @@ from ROBOTarm_NEXUS.controllers import PlanarPanelIKConfig, PlanarSideViewJointC
 from isaaclab_tasks.utils import parse_env_cfg  # noqa: E402
 
 from .common import strip_cameras  # noqa: E402
+from .grasping_common import (  # noqa: E402
+    current_grasp_point_world,
+    current_gripper_target_world,
+    grasp_target_to_gripper_target,
+    load_ee_calibration,
+    scripted_env_step,
+    select_wrist_roll_target,
+    smoothstep,
+)
 
-CALIBRATION_FILE = Path.home() / ".config" / "so101_control" / "ee_calibration.json"
-DEFAULT_GRASP_POINT_IN_GRIPPER = (0.03, 0.005, -0.055)
 CLEARANCE_Z = 0.12
 AUTO_PHASE_ORDER = (
     "approach",
@@ -106,137 +108,6 @@ LIFT_SUCCESS_M = 0.05
 FINAL_PLACE_TOL_M = 0.050
 
 
-def load_ee_calibration() -> tuple[tuple[float, float, float], float | None]:
-    """Load the calibrated grasp point and optional wrist-roll hint."""
-    try:
-        payload = json.loads(CALIBRATION_FILE.read_text())
-    except (FileNotFoundError, OSError, ValueError):
-        return DEFAULT_GRASP_POINT_IN_GRIPPER, None
-
-    offset = DEFAULT_GRASP_POINT_IN_GRIPPER
-    grasp_point = payload.get("grasp_point_in_gripper") if isinstance(payload, dict) else None
-    if isinstance(grasp_point, dict) and {"x", "y", "z"} <= grasp_point.keys():
-        offset = (
-            float(grasp_point["x"]),
-            float(grasp_point["y"]),
-            float(grasp_point["z"]),
-        )
-
-    wrist_roll = None
-    if isinstance(payload, dict):
-        if "wrist_roll" in payload:
-            wrist_roll = float(payload["wrist_roll"])
-        elif isinstance(grasp_point, dict) and "roll" in grasp_point:
-            wrist_roll = float(grasp_point["roll"])
-
-    return offset, wrist_roll
-
-
-def current_gripper_target_world(env) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return the gripper pose from the ee frame transformer."""
-    gripper_pos_w = env.scene["ee_frame"].data.target_pos_w[0, 0, :].clone()
-    gripper_quat_w = env.scene["ee_frame"].data.target_quat_w[0, 0, :].clone()
-    return gripper_pos_w, gripper_quat_w
-
-
-def grasp_point_offset_world(
-    env,
-    grasp_point_in_gripper: torch.Tensor,
-    reference_quat_w: torch.Tensor | None = None,
-) -> torch.Tensor:
-    """Transform the calibrated grasp-point offset into world coordinates."""
-    quat_w = current_gripper_target_world(env)[1] if reference_quat_w is None else reference_quat_w
-    return math_utils.quat_apply(quat_w.reshape(1, 4), grasp_point_in_gripper.reshape(1, 3))[0]
-
-
-def current_grasp_point_world(
-    env,
-    grasp_point_in_gripper: torch.Tensor,
-    reference_quat_w: torch.Tensor | None = None,
-) -> torch.Tensor:
-    """Return the calibrated grasp point in world coordinates."""
-    gripper_pos_w, _ = current_gripper_target_world(env)
-    return gripper_pos_w + grasp_point_offset_world(
-        env, grasp_point_in_gripper, reference_quat_w=reference_quat_w
-    )
-
-
-def grasp_target_to_gripper_target(
-    env,
-    grasp_target_w: torch.Tensor,
-    grasp_point_in_gripper: torch.Tensor,
-    reference_quat_w: torch.Tensor | None = None,
-) -> torch.Tensor:
-    """Convert a desired grasp-point target into the Lula gripper target."""
-    return grasp_target_w - grasp_point_offset_world(
-        env, grasp_point_in_gripper, reference_quat_w=reference_quat_w
-    )
-
-
-def wrap_parallel_jaw_angle(angle_radians: float) -> float:
-    """Wrap into [-pi/2, pi/2] under 180-degree jaw symmetry."""
-    return math.atan2(math.sin(2.0 * angle_radians), math.cos(2.0 * angle_radians)) * 0.5
-
-
-def cube_yaw_in_base(env, cube_name: str) -> float:
-    """Return cube yaw in the robot base frame."""
-    _cube_pos_b, cube_quat_b = math_utils.subtract_frame_transforms(
-        env.scene["robot"].data.root_pos_w,
-        env.scene["robot"].data.root_quat_w,
-        env.scene[cube_name].data.root_pos_w,
-        env.scene[cube_name].data.root_quat_w,
-    )
-    cube_rot_b = math_utils.matrix_from_quat(cube_quat_b)
-    return float(torch.atan2(cube_rot_b[0, 1, 0], cube_rot_b[0, 0, 0]).item())
-
-
-def nearest_parallel_jaw_roll_within_limits(
-    ik: PlanarSideViewJointController, raw_target: float, reference: float
-) -> float:
-    """Choose the nearest equivalent roll target that stays inside joint limits."""
-    lower, upper = ik.wrist_roll_limits()
-    candidates = [
-        raw_target + float(k) * math.pi
-        for k in range(-3, 4)
-        if lower <= raw_target + float(k) * math.pi <= upper
-    ]
-    if not candidates:
-        return min(upper, max(lower, raw_target))
-    return min(candidates, key=lambda value: abs(value - reference))
-
-
-def select_wrist_roll_target(
-    env,
-    ik: PlanarSideViewJointController,
-    cube_name: str,
-    nominal_roll: float,
-) -> float:
-    """Align the gripper with a cube edge while staying near the nominal roll."""
-    cube_yaw = cube_yaw_in_base(env, cube_name)
-    best_roll = nominal_roll
-    best_metric: tuple[float, float] | None = None
-    for raw_target in (nominal_roll + cube_yaw, nominal_roll + cube_yaw + math.pi * 0.5):
-        candidate = nearest_parallel_jaw_roll_within_limits(ik, raw_target, nominal_roll)
-        metric = (
-            abs(wrap_parallel_jaw_angle(candidate - nominal_roll)),
-            abs(candidate - nominal_roll),
-        )
-        if best_metric is None or metric < best_metric:
-            best_metric = metric
-            best_roll = candidate
-    return best_roll
-
-
-def scripted_env_step(env, action: torch.Tensor, *, phase_name: str) -> None:
-    """Step the env and fail loudly if IsaacLab auto-resets during the scripted demo."""
-    _obs, _reward, terminated, truncated, _extras = env.step(action)
-    if bool(torch.any(terminated).item()) or bool(torch.any(truncated).item()):
-        raise RuntimeError(
-            f"Environment reset triggered during scripted pick/place phase '{phase_name}'. "
-            "This usually means the env success/timeout condition is still active."
-        )
-
-
 def report_camera_streams(obs_policy: dict[str, torch.Tensor]) -> None:
     """Print camera tensor status so the demo clearly shows both streams are live."""
     print("  Camera streams:")
@@ -246,11 +117,6 @@ def report_camera_streams(obs_policy: dict[str, torch.Tensor]) -> None:
             print(f"    {cam_name:8s} disabled")
             continue
         print(f"    {cam_name:8s} shape={tuple(tensor.shape)} dtype={tensor.dtype}")
-
-
-def smoothstep(alpha: float) -> float:
-    """Match the original auto-pick trajectory interpolation."""
-    return 3.0 * alpha * alpha - 2.0 * alpha * alpha * alpha
 
 
 def run_pick_and_place_demo(
@@ -342,7 +208,7 @@ def run_pick_and_place_demo(
             gripper_quat_w,
             grip_closed=auto_phase in AUTO_GRIP_CLOSED_PHASES,
         )
-        scripted_env_step(env, action, phase_name=auto_phase)
+        scripted_env_step(env, action, phase_name=auto_phase, context="pick/place")
         peak_lifted = max(peak_lifted, float((cube.data.root_pos_w[0, 2] - cube_pos_start[2]).item()))
 
         if auto_phase in {"lift", "transport", "place"}:
@@ -399,7 +265,7 @@ def main() -> None:
     camera_windows = []
     try:
         env_cfg = parse_env_cfg(
-            "SO101-MinimalCube-v0",
+            ENV_ID,
             device=args_cli.device,
             num_envs=1,
         )
@@ -412,7 +278,7 @@ def main() -> None:
         if args_cli.no_cameras or not cameras_requested:
             strip_cameras(env_cfg)
 
-        env = gym.make("SO101-MinimalCube-v0", cfg=env_cfg)
+        env = gym.make(ENV_ID, cfg=env_cfg)
         obs, _info = env.reset()
         env_unwrapped = env.unwrapped
         dynamic_reset_gripper_effort_limit_sim(env_unwrapped)

@@ -11,8 +11,10 @@ Zero dependency on the full leisaac codebase.
 """
 import gymnasium as gym
 
+from .core.specs import ENV_ID
+
 gym.register(
-    id="SO101-MinimalCube-v0",
+    id=ENV_ID,
     entry_point="ROBOTarm_NEXUS.core.env:SO101MinimalEnv",
     disable_env_checker=True,
     kwargs={

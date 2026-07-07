@@ -20,6 +20,8 @@ import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
+from .specs import ACTIVE_ROBOT
+
 # ---------------------------------------------------------------------------
 #  USD asset path resolution
 # ---------------------------------------------------------------------------
@@ -30,17 +32,17 @@ _PKG_ROOT = _CORE_ROOT.parent
 def _resolve_usd_path() -> str:
     """Locate so101_follower.usd without depending on leisaac."""
     # 1) explicit env override
-    env_path = os.environ.get("SO101_USD_PATH", "")
+    env_path = os.environ.get(ACTIVE_ROBOT.usd_env_var, "")
     if env_path:
         return str(Path(env_path).expanduser().resolve())
 
     # 2) bundled copy inside this package
-    bundled = _PKG_ROOT / "assets" / "robots" / "so101_follower.usd"
+    bundled = _PKG_ROOT / "assets" / "robots" / ACTIVE_ROBOT.bundled_usd_filename
     if bundled.is_file():
         return str(bundled)
 
     # 3) legacy flat asset location kept for backward compatibility
-    legacy_bundled = _PKG_ROOT / "assets" / "so101_follower.usd"
+    legacy_bundled = _PKG_ROOT / "assets" / ACTIVE_ROBOT.bundled_usd_filename
     if legacy_bundled.is_file():
         return str(legacy_bundled)
 
@@ -52,30 +54,25 @@ def _resolve_usd_path() -> str:
         if search_root in seen_roots or not search_root.is_dir():
             continue
         seen_roots.add(search_root)
-        patterns = (
-            "*/assets/robots/so101_follower.usd",
-            "*/robots/so101_follower.usd",
-            "*/leisaac/robots/so101_follower.usd",
-        )
-        for pattern in patterns:
+        for pattern in ACTIVE_ROBOT.usd_search_patterns:
             for candidate in search_root.glob(pattern):
                 if candidate.is_file():
                     return str(candidate.resolve())
 
     raise FileNotFoundError(
-        "Cannot find so101_follower.usd.  Set SO101_USD_PATH or place the USD "
-        "at ROBOTarm_NEXUS/assets/robots/so101_follower.usd"
+        f"Cannot find {ACTIVE_ROBOT.bundled_usd_filename}. Set {ACTIVE_ROBOT.usd_env_var} "
+        f"or place the USD at ROBOTarm_NEXUS/assets/robots/{ACTIVE_ROBOT.bundled_usd_filename}"
     )
 
 
-SO101_FOLLOWER_USD_PATH = _resolve_usd_path()
+ROBOT_USD_PATH = _resolve_usd_path()
 
 # ---------------------------------------------------------------------------
 #  Articulation configuration
 # ---------------------------------------------------------------------------
-SO101_FOLLOWER_CFG = ArticulationCfg(
+ROBOT_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=SO101_FOLLOWER_USD_PATH,
+        usd_path=ROBOT_USD_PATH,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             # Match leisaac IK / state-machine mode: disable gravity on the
             # robot so the real-servo PD gains (stiffness=17.8, damping=0.60)
@@ -100,17 +97,12 @@ SO101_FOLLOWER_CFG = ArticulationCfg(
         # Match leisaac lerobot.py: all-zero joint pose.  With
         # disable_gravity=True the arm holds this pose without oscillation.
         joint_pos={
-            "shoulder_pan": 0.0,
-            "shoulder_lift": 0.0,
-            "elbow_flex": 0.0,
-            "wrist_flex": 0.0,
-            "wrist_roll": 0.0,
-            "gripper": 0.0,
+            name: 0.0 for name in ACTIVE_ROBOT.joint_names
         },
     ),
     actuators={
-        "sts3215-gripper": ImplicitActuatorCfg(
-            joint_names_expr=["gripper"],
+        ACTIVE_ROBOT.actuator_gripper_name: ImplicitActuatorCfg(
+            joint_names_expr=[ACTIVE_ROBOT.gripper_joint_name],
             effort_limit_sim=10,
             velocity_limit_sim=10,
             # Match leisaac STS3215 real servo PD gains.  Higher stiffness
@@ -119,14 +111,8 @@ SO101_FOLLOWER_CFG = ArticulationCfg(
             stiffness=17.8,
             damping=0.60,
         ),
-        "sts3215-arm": ImplicitActuatorCfg(
-            joint_names_expr=[
-                "shoulder_pan",
-                "shoulder_lift",
-                "elbow_flex",
-                "wrist_flex",
-                "wrist_roll",
-            ],
+        ACTIVE_ROBOT.actuator_arm_name: ImplicitActuatorCfg(
+            joint_names_expr=list(ACTIVE_ROBOT.arm_joint_names),
             effort_limit_sim=10,
             velocity_limit_sim=10,
             stiffness=17.8,
@@ -139,7 +125,7 @@ SO101_FOLLOWER_CFG = ArticulationCfg(
 # ---------------------------------------------------------------------------
 #  Joint limits (degrees, as written in the USD)
 # ---------------------------------------------------------------------------
-SO101_FOLLOWER_USD_JOINT_LIMITS = {
+ROBOT_USD_JOINT_LIMITS = {
     "shoulder_pan": (-110.0, 110.0),
     "shoulder_lift": (-100.0, 100.0),
     "elbow_flex": (-100.0, 90.0),
@@ -149,7 +135,7 @@ SO101_FOLLOWER_USD_JOINT_LIMITS = {
 }
 
 # Motor limits on the real device (normalized -100~100)
-SO101_FOLLOWER_MOTOR_LIMITS = {
+ROBOT_MOTOR_LIMITS = {
     "shoulder_pan": (-100.0, 100.0),
     "shoulder_lift": (-100.0, 100.0),
     "elbow_flex": (-100.0, 100.0),
@@ -159,7 +145,7 @@ SO101_FOLLOWER_MOTOR_LIMITS = {
 }
 
 # Rest-pose detection ranges (degrees)
-SO101_FOLLOWER_REST_POSE_RANGE = {
+ROBOT_REST_POSE_RANGE = {
     "shoulder_pan": (-30.0, 30.0),
     "shoulder_lift": (-130.0, -70.0),
     "elbow_flex": (60.0, 120.0),
@@ -168,11 +154,11 @@ SO101_FOLLOWER_REST_POSE_RANGE = {
     "gripper": (-40.0, 20.0),
 }
 
-JOINT_NAMES = [
-    "shoulder_pan",
-    "shoulder_lift",
-    "elbow_flex",
-    "wrist_flex",
-    "wrist_roll",
-    "gripper",
-]
+JOINT_NAMES = list(ACTIVE_ROBOT.joint_names)
+
+# Backward-compatible aliases kept for existing imports and notes.
+SO101_FOLLOWER_USD_PATH = ROBOT_USD_PATH
+SO101_FOLLOWER_CFG = ROBOT_CFG
+SO101_FOLLOWER_USD_JOINT_LIMITS = ROBOT_USD_JOINT_LIMITS
+SO101_FOLLOWER_MOTOR_LIMITS = ROBOT_MOTOR_LIMITS
+SO101_FOLLOWER_REST_POSE_RANGE = ROBOT_REST_POSE_RANGE

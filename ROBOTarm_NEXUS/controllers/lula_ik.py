@@ -27,17 +27,18 @@ import numpy as np
 import torch
 
 from ..core.robot_cfg import (
-    SO101_FOLLOWER_REST_POSE_RANGE,
-    SO101_FOLLOWER_USD_JOINT_LIMITS,
+    ROBOT_REST_POSE_RANGE,
+    ROBOT_USD_JOINT_LIMITS,
 )
+from ..core.specs import ACTIVE_ROBOT
 
 # ---------------------------------------------------------------------------
 #  Lula asset paths (bundled in this package)
 # ---------------------------------------------------------------------------
 _PKG_ROOT = Path(__file__).resolve().parent.parent
-_LULA_ASSET_DIR = _PKG_ROOT / "assets" / "ik" / "lula"
-_LULA_URDF = _LULA_ASSET_DIR / "so101_rmpflow.urdf"
-_LULA_DESCRIPTOR = _LULA_ASSET_DIR / "so101_robot_description.yaml"
+_LULA_ASSET_DIR = _PKG_ROOT / "assets" / "ik" / ACTIVE_ROBOT.lula_asset_dirname
+_LULA_URDF = _LULA_ASSET_DIR / ACTIVE_ROBOT.lula_urdf_filename
+_LULA_DESCRIPTOR = _LULA_ASSET_DIR / ACTIVE_ROBOT.lula_descriptor_filename
 
 
 # ---------------------------------------------------------------------------
@@ -46,12 +47,12 @@ _LULA_DESCRIPTOR = _LULA_ASSET_DIR / "so101_robot_description.yaml"
 def _rest_pose_center_rad() -> dict[str, float]:
     return {
         name: math.radians((lo + hi) * 0.5)
-        for name, (lo, hi) in SO101_FOLLOWER_REST_POSE_RANGE.items()
+        for name, (lo, hi) in ROBOT_REST_POSE_RANGE.items()
     }
 
 
 def _joint_limit_rad(joint_name: str) -> tuple[float, float]:
-    lo, hi = SO101_FOLLOWER_USD_JOINT_LIMITS[joint_name]
+    lo, hi = ROBOT_USD_JOINT_LIMITS[joint_name]
     return math.radians(lo), math.radians(hi)
 
 
@@ -128,7 +129,7 @@ class PlanarSideViewJointController:
         self._robot = env.scene["robot"]
         self._device = env.device
         self._config = config or PlanarPanelIKConfig()
-        self._ee_body_idx = self._robot.find_bodies("gripper")[0][0]
+        self._ee_body_idx = self._robot.find_bodies(ACTIVE_ROBOT.ee_frame_name)[0][0]
         self._joint_ids = {
             name: self._robot.joint_names.index(name)
             for name in self._JOINT_ORDER
@@ -193,7 +194,7 @@ class PlanarSideViewJointController:
                 robot_description_path=str(_LULA_DESCRIPTOR),
                 urdf_path=str(_LULA_URDF),
             )
-            self._lula_ik_frame = "gripper"
+            self._lula_ik_frame = ACTIVE_ROBOT.ee_frame_name
             self._lula_joint_names = list(self._lula_ik_solver.get_joint_names())
             self._lula_output_to_action_slot = {
                 out_idx: self._joint_ids[name]

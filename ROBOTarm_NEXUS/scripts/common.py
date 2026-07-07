@@ -8,6 +8,8 @@ import sys
 
 import torch
 
+from ..core.specs import ACTIVE_ROBOT
+
 
 def validate_camera_device(args_cli, parser: argparse.ArgumentParser) -> None:
     """Reject unsupported CPU+tiled-camera combinations before Isaac Sim boots."""
@@ -102,7 +104,9 @@ def open_camera_viewports(env, camera_names: tuple[str, ...] = ("front", "wrist"
 def dynamic_reset_gripper_effort_limit_sim(env) -> None:
     """Mirror the original Lula collection path's per-reset gripper effort update."""
     robot = env.scene["robot"]
-    gripper_pos = robot.data.body_link_pos_w[:, -1]
+    gripper_body_idx = robot.find_bodies(ACTIVE_ROBOT.ee_frame_name)[0][0]
+    gripper_joint_id = robot.joint_names.index(ACTIVE_ROBOT.gripper_joint_name)
+    gripper_pos = robot.data.body_link_pos_w[:, gripper_body_idx]
     object_positions = []
     object_masses = []
 
@@ -131,4 +135,7 @@ def dynamic_reset_gripper_effort_limit_sim(env) -> None:
 
     new_limits = current_effort_limit_sim.clone()
     new_limits[need_update] = target_effort_limits[need_update]
-    robot.write_joint_effort_limit_to_sim(limits=new_limits, joint_ids=[5 for _ in range(gripper_pos.shape[0])])
+    robot.write_joint_effort_limit_to_sim(
+        limits=new_limits,
+        joint_ids=[gripper_joint_id for _ in range(gripper_pos.shape[0])],
+    )

@@ -36,6 +36,7 @@ import torch  # noqa: E402
 
 import ROBOTarm_NEXUS  # noqa: F401, E402
 from ROBOTarm_NEXUS.core.mdp import cube_positions  # noqa: E402
+from ROBOTarm_NEXUS.core.specs import CUBE_NAMES, ENV_ID  # noqa: E402
 from isaaclab_tasks.utils import parse_env_cfg  # noqa: E402
 
 from .common import strip_cameras  # noqa: E402
@@ -46,7 +47,7 @@ def main() -> None:
     camera_windows = []
     try:
         env_cfg = parse_env_cfg(
-            "SO101-MinimalCube-v0",
+            ENV_ID,
             device=args_cli.device,
             num_envs=args_cli.num_envs,
         )
@@ -55,7 +56,7 @@ def main() -> None:
         if args_cli.no_cameras or not cameras_requested:
             strip_cameras(env_cfg)
 
-        env = gym.make("SO101-MinimalCube-v0", cfg=env_cfg)
+        env = gym.make(ENV_ID, cfg=env_cfg)
         env_unwrapped = env.unwrapped
 
         print("=" * 60)
@@ -87,14 +88,14 @@ def main() -> None:
                 print(
                     f"    step {step:3d}  reward={reward.item():.3f}  "
                     f"done={terminated.any().item()}  "
-                    f"cube_red=({cubes[0,0,0]:.3f},{cubes[0,0,1]:.3f},{cubes[0,0,2]:.3f})"
+                    f"{CUBE_NAMES[0]}=({cubes[0,0,0]:.3f},{cubes[0,0,1]:.3f},{cubes[0,0,2]:.3f})"
                 )
 
         print("\n  Final cube positions:")
         cubes = cube_positions(env_unwrapped)
-        for i, name in enumerate(["red", "green", "blue"]):
+        for i, name in enumerate(CUBE_NAMES):
             p = cubes[0, i]
-            print(f"    {name:6s}  ({p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f})")
+            print(f"    {name:10s} ({p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f})")
 
         success = env_unwrapped._check_success()
         print(f"\n  Success (any cube lifted): {success.item()}")
