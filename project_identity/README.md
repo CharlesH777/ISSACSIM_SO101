@@ -1,7 +1,6 @@
 # Project Identity Assets
 
-This folder groups the reusable NEXUS identity assets for ROBOTarm_NEXUS:
-the logo / intro animation, and the legal / community templates.
+This folder stores repo-specific logo assets and legal/community documents.
 
 ## Layout
 
@@ -27,9 +26,9 @@ project_identity/
   ROBOTarm_NEXUS context (Isaac Lab / Lula / SO-101 third-party stack).
 - `legal/CODE_OF_CONDUCT.md` is the generic Contributor Covenant template.
 
-## Logo intro
+## Logo Intro
 
-To play the animated NEXUS logo intro from the repo root:
+To play the terminal intro from the repo root:
 
 ```bash
 bash project_identity/logo/play_logo_intro.sh 30 golden
@@ -42,6 +41,5 @@ from `set -euo pipefail` boot scripts.
 
 ## Reuse
 
-To reuse this identity bundle in another NEXUS project: copy this folder,
-then update the project name, author, copyright year, third-party notices,
-and any README links.
+If you copy these files into another repo, update the project name, author,
+copyright year, third-party notices, and README links.

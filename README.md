@@ -24,22 +24,6 @@
 贡献指南见 [project_identity/legal/CONTRIBUTING.md](project_identity/legal/CONTRIBUTING.md)。
 行为准则见 [project_identity/legal/CODE_OF_CONDUCT.md](project_identity/legal/CODE_OF_CONDUCT.md)。
 
-## NEXUS 品牌标识
-
-本项目使用 NEXUS 统一品牌标识。品牌与法律资产位于 [`project_identity/`](project_identity/)：
-
-- `project_identity/logo/nexus_logo.png` — 静态 logo（本 README 顶部已展示）
-- `project_identity/logo/nexus_logo.py` — 动画 ASCII logo 脚本
-- `project_identity/logo/play_logo_intro.sh` — 终端启动动画播放器
-
-在终端播放启动动画（缺失依赖时会静默跳过，可在 `set -euo pipefail` 脚本中安全调用）：
-
-```bash
-bash project_identity/logo/play_logo_intro.sh 30 golden
-```
-
-可选样式：`golden`（默认）、`blackgold`、`cyber`、`ice`、`matrix`、`ember`、`random`。
-
 ## 当前能力
 
 - 单机械臂桌面抓取场景
